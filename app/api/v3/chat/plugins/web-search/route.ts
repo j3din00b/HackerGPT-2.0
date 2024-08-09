@@ -9,12 +9,11 @@ import {
   filterEmptyAssistantMessages,
   handleAssistantMessages
 } from "@/lib/build-prompt"
-import {
-  handleErrorResponse,
-  handleOpenRouterApiError
-} from "@/lib/models/llm/api-error"
 import { GPT4o } from "@/lib/models/llm/openai-llm-list"
 import { PGPT4 } from "@/lib/models/llm/hackerai-llm-list"
+import { createOpenAI as createOpenRouterClient } from "@ai-sdk/openai"
+import { streamText } from "ai"
+import { toVercelChatMessages } from "@/lib/build-prompt"
 
 export const runtime: ServerRuntime = "edge"
 export const preferredRegion = [
@@ -39,23 +38,21 @@ export const preferredRegion = [
 
 export async function POST(request: Request) {
   const json = await request.json()
-  const { payload, selectedPlugin, detectedModerationLevel } = json as {
-    payload: any
-    selectedPlugin: any
-    detectedModerationLevel: number
-  }
+  const { payload, chatImages, selectedPlugin, detectedModerationLevel } =
+    json as {
+      payload: any
+      chatImages: any
+      selectedPlugin: any
+      detectedModerationLevel: number
+    }
 
   try {
     const profile = await getAIProfile()
+
     const chatSettings = payload.chatSettings
 
-    let {
-      providerUrl,
-      providerHeaders,
-      selectedModel,
-      rateLimitCheckResult,
-      modelTemperature
-    } = await getProviderConfig(chatSettings, profile)
+    let { providerHeaders, selectedModel, rateLimitCheckResult } =
+      await getProviderConfig(chatSettings, profile)
 
     if (rateLimitCheckResult !== null) {
       return rateLimitCheckResult.response
@@ -64,10 +61,9 @@ export async function POST(request: Request) {
     const cleanedMessages = (await buildFinalMessages(
       payload,
       profile,
-      [],
+      chatImages,
       selectedPlugin
     )) as any[]
-
     const systemMessageContent = llmConfig.systemPrompts.pentestGPTWebSearch
 
     updateOrAddSystemMessage(cleanedMessages, systemMessageContent)
@@ -87,37 +83,24 @@ export async function POST(request: Request) {
       filterEmptyAssistantMessages(cleanedMessages)
     }
 
-    const requestBody = {
-      model: selectedModel,
-      route: "fallback",
-      messages: cleanedMessages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      })),
-      temperature: modelTemperature,
-      max_tokens: 1024,
-      stream: true
-    }
+    const openrouter = createOpenRouterClient({
+      baseUrl: llmConfig.openrouter.baseUrl,
+      apiKey: llmConfig.openrouter.apiKey,
+      headers: providerHeaders
+    })
 
-    try {
-      const res = await fetch(providerUrl, {
-        method: "POST",
-        headers: providerHeaders,
-        body: JSON.stringify(requestBody)
-      })
+    const result = await streamText({
+      model: openrouter(selectedModel),
+      messages: toVercelChatMessages(cleanedMessages),
+      temperature: 0.4,
+      maxTokens: 1024,
+      // abortSignal isn't working for some reason.
+      abortSignal: request.signal
+    })
 
-      if (!res.ok) {
-        await handleOpenRouterApiError(res)
-      }
-
-      if (!res.body) {
-        throw new Error("Response body is null")
-      }
-      return res
-    } catch (error) {
-      return handleErrorResponse(error)
-    }
+    return result.toDataStreamResponse()
   } catch (error: any) {
+    console.error("Error in web search endpoint:", error)
     const errorMessage = error.message || "An unexpected error occurred"
     const errorCode = error.status || 500
 
@@ -131,19 +114,14 @@ async function getProviderConfig(chatSettings: any, profile: any) {
   const isProModel =
     chatSettings.model === PGPT4.modelId || chatSettings.model === GPT4o.modelId
 
-  const providerUrl = llmConfig.openrouter.url
-  const apiKey = llmConfig.openrouter.apiKey
   const defaultModel = "perplexity/llama-3.1-sonar-small-128k-online"
   const proModel = "perplexity/llama-3.1-sonar-large-128k-online"
 
   const providerHeaders = {
-    Authorization: `Bearer ${apiKey}`,
-    "Content-Type": "application/json",
     "HTTP-Referer": "https://pentestgpt.com/web-search",
     "X-Title": "web-search"
   }
 
-  let modelTemperature = 0.4
   let selectedModel = isProModel ? proModel : defaultModel
 
   let rateLimitIdentifier
@@ -161,11 +139,9 @@ async function getProviderConfig(chatSettings: any, profile: any) {
   )
 
   return {
-    providerUrl,
     providerHeaders,
     selectedModel,
     rateLimitCheckResult,
-    isProModel,
-    modelTemperature
+    isProModel
   }
 }

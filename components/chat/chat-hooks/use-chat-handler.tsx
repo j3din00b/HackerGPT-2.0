@@ -196,7 +196,8 @@ export const useChatHandler = () => {
       if (!isRegeneration) {
         setUserInput("")
       }
-      setIsGenerating(true)
+
+      setIsGenerating(!isContinuation)
       setIsAtPickerOpen(false)
       setNewMessageImages([])
 
@@ -254,7 +255,7 @@ export const useChatHandler = () => {
       }
 
       // Update the UI with the new messages
-      setChatMessages(sentChatMessages)
+      if (!isContinuation) setChatMessages(sentChatMessages)
 
       let retrievedFileItems: Tables<"file_items">[] = []
 
@@ -293,7 +294,8 @@ export const useChatHandler = () => {
         !isContinuation &&
         (selectedPlugin === PluginID.NONE ||
           selectedPlugin === PluginID.ENHANCED_SEARCH ||
-          selectedPlugin === PluginID.WEB_SEARCH)
+          selectedPlugin === PluginID.WEB_SEARCH) &&
+        modelData?.provider !== "openai"
       ) {
         const result = await handleDetectPlugin(payload, selectedPlugin)
         if (result === null) {
@@ -318,7 +320,6 @@ export const useChatHandler = () => {
 
         const nonExcludedPluginsForFilesCommand = [
           PluginID.NUCLEI,
-          PluginID.HTTPX,
           PluginID.KATANA
         ]
 

@@ -1,6 +1,8 @@
 import {
   getPentestGPTInfo,
-  getPentestGPTSystemPromptEnding
+  getPentestGPTSystemPromptEnding,
+  // getPentestGPTImageSpecifcInfo,
+  getPentestGPTToolsInfo
 } from "./llm-prompting"
 
 const KnowledgeCutOFFOpenAI = "Knowledge cutoff: 2023-10"
@@ -12,8 +14,11 @@ const options: Intl.DateTimeFormatOptions = {
 }
 const currentDate = `Current date: ${new Date().toLocaleDateString("en-US", options)}`
 
+const initialSystemPrompt = `${process.env.SECRET_PENTESTGPT_SYSTEM_PROMPT}`
+
 const llmConfig = {
   openrouter: {
+    baseUrl: "https://openrouter.ai/api/v1",
     url: `https://openrouter.ai/api/v1/chat/completions`,
     providerRouting: {
       order: [`${process.env.OPENROUTER_FIRST_PROVIDER}`]
@@ -21,12 +26,14 @@ const llmConfig = {
     apiKey: process.env.OPENROUTER_API_KEY
   },
   openai: {
+    baseUrl: "https://api.openai.com/v1",
     url: "https://api.openai.com/v1/chat/completions",
     apiKey: process.env.OPENAI_API_KEY
   },
   systemPrompts: {
-    pentestgptChatBot: `${process.env.SECRET_PENTESTGPT_SYSTEM_PROMPT}\n${getPentestGPTInfo()}\n${getPentestGPTSystemPromptEnding}`,
-    pentestgptWebSearch: `${process.env.SECRET_PENTESTGPT_SYSTEM_PROMPT}\n${getPentestGPTInfo(false)}\n${getPentestGPTSystemPromptEnding}`,
+    pentestGPTChat: `${getPentestGPTInfo(initialSystemPrompt)}\n${getPentestGPTSystemPromptEnding}`,
+    openaiChat: `${getPentestGPTInfo(initialSystemPrompt)}\n${getPentestGPTToolsInfo}\n${getPentestGPTSystemPromptEnding}`,
+    pentestGPTWebSearch: `${getPentestGPTInfo(initialSystemPrompt, false, true)}\n${getPentestGPTSystemPromptEnding}`,
     pentestgpt: `${process.env.SECRET_PENTESTGPT_SYSTEM_PROMPT}\n${KnowledgeCutOFFMeta}\n${currentDate}`,
     pentestgptCurrentDateOnly: `${process.env.SECRET_PENTESTGPT_SYSTEM_PROMPT}\n${currentDate}`,
     openai: `${process.env.SECRET_OPENAI_SYSTEM_PROMPT}\n${KnowledgeCutOFFOpenAI}\n${currentDate}`,

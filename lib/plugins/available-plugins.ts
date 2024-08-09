@@ -85,7 +85,7 @@ export const availablePlugins: PluginSummary[] = [
       "Enhance responses with up-to-date web information and broader knowledge",
     githubRepoUrl: pluginUrls.PENTESTGPT,
     isInstalled: false,
-    isPremium: false,
+    isPremium: true,
     createdAt: "2024-06-12",
     starters: [
       {
@@ -271,42 +271,6 @@ export const availablePlugins: PluginSummary[] = [
         title: "Katana Help",
         description: "How does the Katana plugin work?",
         chatMessage: "/katana -help"
-      }
-    ]
-  },
-  {
-    id: 9,
-    name: "HTTPX",
-    selectorName: "HTTPX",
-    value: PluginID.HTTPX,
-    categories: ["recon"],
-    icon: "https://avatars.githubusercontent.com/u/50994705",
-    description:
-      "Fast and multi-purpose HTTP toolkit that allows running multiple probes",
-    githubRepoUrl: pluginUrls.HTTPX,
-    isInstalled: false,
-    isPremium: true,
-    createdAt: "2024-02-27",
-    starters: [
-      {
-        title: "Start HTTP Analysis",
-        description: "on hackerone.com, revealing server details ...",
-        chatMessage: "httpx -u hackerone.com"
-      },
-      {
-        title: "Detect Web Technologies",
-        description: "on bugcrowd.com, utilizing Wappalyzer dataset...",
-        chatMessage: "httpx -u bugcrowd.com -tech-detect"
-      },
-      {
-        title: "Security Headers Analysis",
-        description: "on intigriti.com, inspecting for security-...",
-        chatMessage: "httpx -u intigriti.com -include-response-header -json"
-      },
-      {
-        title: "HTTPX Help",
-        description: "How does the HTTPX plugin work?",
-        chatMessage: "/httpx -help"
       }
     ]
   },

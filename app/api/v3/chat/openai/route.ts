@@ -1,21 +1,20 @@
-import { getAIProfile } from "@/lib/server/server-chat-helpers"
-import { ServerRuntime } from "next"
-import { ChatCompletionCreateParamsBase } from "openai/resources/chat/completions.mjs"
-
 import {
   replaceWordsInLastUserMessage,
   updateOrAddSystemMessage,
   wordReplacements
 } from "@/lib/ai-helper"
-
-import { checkRatelimitOnApi } from "@/lib/server/ratelimiter"
 import {
   buildFinalMessages,
-  filterEmptyAssistantMessages
+  filterEmptyAssistantMessages,
+  toVercelChatMessages
 } from "@/lib/build-prompt"
-import { handleOpenAIApiError } from "@/lib/models/llm/api-error"
 import llmConfig from "@/lib/models/llm/llm-config"
-import { getSelectedModel } from "@/lib/models/notdiamond"
+import { checkRatelimitOnApi } from "@/lib/server/ratelimiter"
+import { getAIProfile } from "@/lib/server/server-chat-helpers"
+import { createOpenAI } from "@ai-sdk/openai"
+import { streamText } from "ai"
+import { ServerRuntime } from "next"
+import { z } from "zod"
 
 export const runtime: ServerRuntime = "edge"
 export const preferredRegion = [
@@ -64,34 +63,28 @@ export async function POST(request: Request) {
     filterEmptyAssistantMessages(cleanedMessages)
     replaceWordsInLastUserMessage(cleanedMessages, wordReplacements)
 
-    const selectedModel = await getSelectedModel(cleanedMessages, "openai")
-
-    const requestBody = {
-      model: selectedModel,
-      messages: cleanedMessages as ChatCompletionCreateParamsBase["messages"],
-      temperature: 0.4,
-      max_tokens: 1024,
-      stream: true
-    }
-
-    const res = await fetch(llmConfig.openai.url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${llmConfig.openai.apiKey}`
-      },
-      body: JSON.stringify(requestBody)
+    const openai = createOpenAI({
+      baseUrl: llmConfig.openai.baseUrl,
+      apiKey: llmConfig.openai.apiKey
     })
 
-    if (!res.ok) {
-      await handleOpenAIApiError(res)
-    }
+    const result = await streamText({
+      model: openai("gpt-4o-2024-08-06"),
+      temperature: 0.4,
+      maxTokens: 1024,
+      messages: toVercelChatMessages(cleanedMessages, true),
+      // abortSignal isn't working for some reason.
+      abortSignal: request.signal,
+      experimental_toolCallStreaming: true,
+      tools: {
+        webSearch: {
+          description: "Search the web for latest information",
+          parameters: z.object({ search: z.boolean() })
+        }
+      }
+    })
 
-    if (!res.body) {
-      throw new Error("Response body is null")
-    }
-
-    return res
+    return result.toDataStreamResponse()
   } catch (error: any) {
     const errorMessage = error.message || "An unexpected error occurred"
     const errorCode = error.status || 500

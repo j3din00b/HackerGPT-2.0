@@ -8,6 +8,12 @@ import {
 import { PluginID } from "@/types/plugins"
 import { encode } from "gpt-tokenizer"
 import { GPT4o } from "./models/llm/openai-llm-list"
+import {
+  CoreAssistantMessage,
+  CoreMessage,
+  CoreSystemMessage,
+  CoreUserMessage
+} from "ai"
 import endent from "endent"
 
 const buildBasePrompt = (
@@ -62,12 +68,14 @@ export async function buildFinalMessages(
     selectedPlugin === PluginID.CVEMAP ||
     selectedPlugin === PluginID.NUCLEI ||
     selectedPlugin === PluginID.SUBFINDER ||
-    selectedPlugin === PluginID.HTTPX ||
     // Tools
     selectedPlugin === PluginID.LINKFINDER ||
     selectedPlugin === PluginID.PORTSCANNER ||
     selectedPlugin === PluginID.SSLSCANNER ||
-    selectedPlugin === PluginID.DNSSCANNER
+    selectedPlugin === PluginID.DNSSCANNER ||
+    selectedPlugin === PluginID.SQLIEXPLOITER ||
+    selectedPlugin === PluginID.WHOIS ||
+    selectedPlugin === PluginID.WAFDETECTOR
   ) {
     CHUNK_SIZE = 4096
   }
@@ -263,4 +271,78 @@ export function handleAssistantMessages(
   if (!foundAssistant) {
     messages.push({ role: "assistant", content: "Sure, " })
   }
+}
+
+export const toVercelChatMessages = (
+  messages: BuiltChatMessage[],
+  supportsImages: boolean = false
+): CoreMessage[] => {
+  return messages
+    .map(message => {
+      switch (message.role) {
+        case "assistant":
+          return {
+            role: "assistant",
+            content: Array.isArray(message.content)
+              ? message.content.map(content => {
+                  if (typeof content === "object" && content.type === "text") {
+                    return {
+                      type: "text",
+                      text: content.text
+                    }
+                  } else {
+                    return {
+                      type: "text",
+                      text: content
+                    }
+                  }
+                })
+              : [{ type: "text", text: message.content as string }]
+          } as CoreAssistantMessage
+        case "user":
+          return {
+            role: message.role,
+            content: Array.isArray(message.content)
+              ? message.content
+                  .map(content => {
+                    if (
+                      typeof content === "object" &&
+                      content.type === "image_url"
+                    ) {
+                      if (supportsImages) {
+                        return {
+                          type: "image",
+                          image: new URL(content.image_url.url)
+                        }
+                      } else {
+                        return null
+                      }
+                    } else if (
+                      typeof content === "object" &&
+                      content.type === "text"
+                    ) {
+                      return {
+                        type: "text",
+                        text: content.text
+                      }
+                    } else {
+                      return {
+                        type: "text",
+                        text: content
+                      }
+                    }
+                  })
+                  .filter(Boolean)
+              : [{ type: "text", text: message.content as string }]
+          } as CoreUserMessage
+        case "system":
+          return {
+            role: "system",
+            content: message.content
+          } as CoreSystemMessage
+        default:
+          return null
+      }
+    })
+    .filter(message => message !== null)
 }

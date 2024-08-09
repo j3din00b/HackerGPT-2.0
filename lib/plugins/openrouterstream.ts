@@ -7,6 +7,7 @@ import {
 } from "@/lib/ai-helper"
 import llmConfig from "@/lib/models/llm/llm-config"
 import { APIError } from "@/lib/models/llm/api-error"
+import { toVercelChatMessages } from "../build-prompt"
 
 export const OpenRouterStream = async (
   messages: any[],
@@ -36,9 +37,9 @@ export const OpenRouterStream = async (
 
   try {
     const result = await streamText({
-      model: openrouter("openai/gpt-4o"),
+      model: openrouter("openai/gpt-4o-2024-08-06"),
       system: SYSTEM_PROMPT,
-      messages: [...messages],
+      messages: toVercelChatMessages(messages, true),
       maxTokens: 512,
       temperature: 0.1
     })
