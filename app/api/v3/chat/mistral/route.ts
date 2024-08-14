@@ -6,7 +6,6 @@ import { updateOrAddSystemMessage } from "@/lib/ai-helper"
 import {
   buildFinalMessages,
   filterEmptyAssistantMessages,
-  handleAssistantMessages,
   toVercelChatMessages
 } from "@/lib/build-prompt"
 import { handleErrorResponse } from "@/lib/models/llm/api-error"
@@ -15,8 +14,10 @@ import { generateStandaloneQuestion } from "@/lib/models/question-generator"
 import { checkRatelimitOnApi } from "@/lib/server/ratelimiter"
 import { createMistral } from "@ai-sdk/mistral"
 import { createOpenAI } from "@ai-sdk/openai"
-import { StreamData, streamText } from "ai"
+import { StreamData, streamText, tool } from "ai"
+import { jsonSchema } from "ai"
 import { z } from "zod"
+import { executeCode } from "@/lib/tools/code-interpreter-utils"
 
 export const runtime: ServerRuntime = "edge"
 export const preferredRegion = [
@@ -96,11 +97,7 @@ export async function POST(request: Request) {
 
     updateOrAddSystemMessage(
       cleanedMessages,
-      selectedModel === "mistralai/mistral-nemo" ||
-        (detectedModerationLevel === 0 && !isPentestGPTPro) ||
-        (detectedModerationLevel >= 0.0 &&
-          detectedModerationLevel <= 0.2 &&
-          !isPentestGPTPro)
+      selectedModel === "mistralai/mistral-nemo"
         ? llmConfig.systemPrompts.pgpt35WithTools
         : llmConfig.systemPrompts.pentestGPTChat
     )
@@ -170,13 +167,6 @@ export async function POST(request: Request) {
     ) {
       selectedModel = "openai/gpt-4o-mini"
       filterEmptyAssistantMessages(cleanedMessages)
-    } else if (
-      detectedModerationLevel === 1 ||
-      (detectedModerationLevel >= 0.8 && detectedModerationLevel < 1)
-    ) {
-      filterEmptyAssistantMessages(cleanedMessages)
-    } else if (detectedModerationLevel > 0.3 && detectedModerationLevel < 0.8) {
-      handleAssistantMessages(cleanedMessages)
     } else {
       filterEmptyAssistantMessages(cleanedMessages)
     }
@@ -201,6 +191,8 @@ export async function POST(request: Request) {
       const data = new StreamData()
       data.append({ ragUsed, ragId })
 
+      // let hasExecutedCode = false
+
       const result = await streamText({
         model: provider(selectedModel),
         messages: toVercelChatMessages(cleanedMessages),
@@ -215,17 +207,62 @@ export async function POST(request: Request) {
             ? {
                 webSearch: {
                   description: "Search the web for latest information",
-                  parameters: z.object({ search: z.boolean() })
+                  parameters: jsonSchema({
+                    type: "object",
+                    properties: {
+                      search: {
+                        type: "boolean",
+                        description: "Whether to perform a web search"
+                      }
+                    },
+                    required: ["search"]
+                  })
                 },
                 browser: {
                   description: "Browse a webpage and extract its content",
-                  parameters: z.object({
-                    open_url: z
-                      .string()
-                      .url()
-                      .describe("The URL of the webpage to browse")
+                  parameters: jsonSchema({
+                    type: "object",
+                    properties: {
+                      open_url: {
+                        type: "string",
+                        format: "uri",
+                        description: "The URL of the webpage to browse"
+                      }
+                    },
+                    required: ["open_url"]
                   })
                 }
+                // python: {
+                //   description: "Runs Python code.",
+                //   parameters: jsonSchema({
+                //     type: "object",
+                //     properties: {
+                //       code: {
+                //         type: "string",
+                //         description: "The python code to execute in a single cell."
+                //       }
+                //     },
+                //     required: ["code"]
+                //   }),
+                //   execute: async ({ code }) => {
+                //     if (hasExecutedCode) {
+                //       return {
+                //         results:
+                //           "Code execution skipped. Only one code cell can be executed per request.",
+                //         runtimeError: null
+                //       }
+                //     }
+
+                //     hasExecutedCode = true
+                //     const execOutput = await executeCode(profile.user_id, code)
+                //     const { results, error: runtimeError } = execOutput
+
+                //     return {
+                //       results,
+                //       runtimeError
+                //     }
+                //   }
+                // }
               }
             : undefined,
         onFinish: () => {
