@@ -196,7 +196,7 @@ export async function POST(request: Request) {
                     "Browse a webpage and extract its text content. \
                 For HTML retrieval or more complex web scraping, use the Python tool.",
                   parameters: z.object({
-                    url: z
+                    open_url: z
                       .string()
                       .url()
                       .describe("The URL of the webpage to browse")

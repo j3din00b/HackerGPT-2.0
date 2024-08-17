@@ -259,13 +259,20 @@ export const Message: FC<MessageProps> = ({
                           <div>Searching files...</div>
                         </div>
                       )
-                    case PluginID.BROWSER:
                     case PluginID.WEB_SEARCH:
                       return (
                         <div className="flex animate-pulse items-center space-x-2">
                           <IconWorld size={20} />
 
                           <div>Searching the web...</div>
+                        </div>
+                      )
+                    case PluginID.BROWSER:
+                       return (
+                        <div className="flex animate-pulse items-center space-x-2">
+                          <IconWorld size={20} />
+
+                          <div>Browsing the web...</div>
                         </div>
                       )
                     case "Enhanced Search":
