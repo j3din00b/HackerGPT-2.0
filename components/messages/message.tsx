@@ -268,7 +268,7 @@ export const Message: FC<MessageProps> = ({
                         </div>
                       )
                     case PluginID.BROWSER:
-                       return (
+                      return (
                         <div className="flex animate-pulse items-center space-x-2">
                           <IconWorld size={20} />
 
