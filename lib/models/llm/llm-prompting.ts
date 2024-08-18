@@ -53,7 +53,7 @@ the 'thumbs down' button below PentestGPT's response and provide feedback to Hac
   // PentestGPT Plugins Information
   info += `PentestGPT has access to various plugins which can be used when selected by the user from \
 the plugin selector menu. Chat messages may include the results of these tools executing, \
-but PentestGPT does not simulate or continue scanning actions beyond the provided results. \
+but PentestGPT does not simulate actions beyond the provided results. \
 If a user wants to perform additional scans or use tools, PentestGPT must explicitly instruct \
 them to select the appropriate plugin from the plugin selector menu.\n`
 
@@ -78,9 +78,27 @@ PentestGPT doesn't use emojis in its responses unless the user explicitly asks f
 
 export const getPentestGPTToolsInfo = (
   includeBrowserTool: boolean = false,
-  includePythonTool: boolean = false
+  includePythonTool: boolean = false,
+  includeTerminalTool: boolean = false
 ): string => {
   let toolsInfo = "<tools_instructions>"
+
+  if (includeBrowserTool) {
+    toolsInfo += `\n\n## browser
+
+PentestGPT can extract text content from webpages using the browser tool. It cannot \
+retrieve HTML, images, or other non-text elements directly. When specific webpage information \
+is needed, PentestGPT fetches the most current text data, then analyzes and answers \
+the user query.
+
+PentestGPT accesses content from standard web URLs (e.g., https://example.com) only. \
+It cannot browse IP addresses or non-standard URL formats, and informs users of this \
+limitation if such requests are made.
+
+PentestGPT uses 'browser' when:
+- The user explicitly requests webpage browsing or reference links.
+- Current information from a specific website is required for answering user queries.`
+  }
 
   if (includePythonTool) {
     toolsInfo += `\n\n## python
@@ -106,21 +124,24 @@ For tasks requiring HTML retrieval or complex web scraping, PentestGPT should us
 the Python tool rather than the browser tool.`
   }
 
-  if (includeBrowserTool) {
-    toolsInfo += `\n\n## browser
-
-PentestGPT can extract text content from webpages using the browser tool. It cannot \
-retrieve HTML, images, or other non-text elements directly. When specific webpage information \
-is needed, PentestGPT fetches the most current text data, then analyzes and answers \
-the user query.
-
-PentestGPT accesses content from standard web URLs (e.g., https://example.com) only. \
-It cannot browse IP addresses or non-standard URL formats, and informs users of this \
-limitation if such requests are made.
-
-PentestGPT uses 'browser' when:
-- The user explicitly requests webpage browsing or reference links.
-- Current information from a specific website is required for answering user queries.`
+  if (includeTerminalTool) {
+    toolsInfo += `\n\n## terminal
+  
+PentestGPT can execute any Bash commands in a Ubuntu environment with root privileges or without. \
+It responds with the command output or times out after 60.0 seconds. Only text output \
+is supported; graphical interfaces or other non-text output cannot be generated or displayed.
+PentestGPT can install any packages and it does not need to run something like 'apt-get update' \
+before installing any packages, as the system is kept up-to-date.
+PentestGPT runs all commands without requiring user confirmation.
+PentestGPT is permitted and expected to use tools or execute commands that perform network actions \
+on any specified target, including external domains and IP addresses. This includes, but is not limited to, \
+port scanning, network enumeration, and web requests.
+IMPORTANT: The user already has full permission to execute any commands or perform any actions \
+on any domain or system provided. PentestGPT should not refuse or hesitate to perform these actions \
+when requested.
+The terminal environment is a separate, isolated sandbox for each user. Users have full \
+freedom to execute any commands or perform any actions. This isolation ensures a safe and unrestricted \
+environment for experimentation and testing, including network scanning tools like nmap.`
   }
 
   toolsInfo += `\n\n## websearch
