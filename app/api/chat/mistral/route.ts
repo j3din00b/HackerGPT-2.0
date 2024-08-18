@@ -79,7 +79,7 @@ export async function POST(request: Request) {
       messages,
       (detectedModerationLevel === 0 && !isPentestGPTPro) ||
         (detectedModerationLevel >= 0.0 &&
-          detectedModerationLevel <= 0.1 &&
+          detectedModerationLevel <= 0.2 &&
           !isPentestGPTPro)
         ? llmConfig.systemPrompts.pgpt35WithTools
         : llmConfig.systemPrompts.pentestGPTChat,
@@ -145,7 +145,7 @@ export async function POST(request: Request) {
     if (
       (detectedModerationLevel === 0 && !isPentestGPTPro) ||
       (detectedModerationLevel >= 0.0 &&
-        detectedModerationLevel <= 0.1 &&
+        detectedModerationLevel <= 0.2 &&
         !isPentestGPTPro)
     ) {
       selectedModel = "openai/gpt-4o-mini"
